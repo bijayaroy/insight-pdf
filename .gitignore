@@ -1,0 +1,25 @@
+Virtual Environment
+
+venv/
+.venv/
+env/
+
+Python Cache
+
+pycache/
+*.py[cod]
+*$py.class
+
+Models and Data
+
+.sentence_transformers/
+cat_cache/
+
+OS specific
+
+.DS_Store
+Thumbs.db
+
+Environments
+
+.env

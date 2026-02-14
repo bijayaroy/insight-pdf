@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semantic PDF Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loader { border-top-color: #3498db; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+    <div class="max-w-4xl mx-auto py-12 px-4">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">InsightPDF: Semantic Search</h1>
+            <p class="text-gray-600">Upload multiple PDFs and search their content using AI</p>
+        </header>
+
+        <!-- Upload Section -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+            <h2 class="text-lg font-semibold mb-4 text-gray-700">1. Ingest Documents</h2>
+            <div class="flex items-center gap-4">
+                <input type="file" id="pdfInput" multiple accept=".pdf" 
+                       class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                <button onclick="uploadFiles()" id="uploadBtn" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition">
+                    Upload & Ingest
+                </button>
+            </div>
+            <div id="uploadStatus" class="mt-3 text-sm font-medium"></div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <h2 class="text-lg font-semibold mb-4 text-gray-700">2. Semantic Search</h2>
+            <div class="relative flex gap-2">
+                <input type="text" id="queryInput" placeholder="What are you looking for?" 
+                       class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                <button onclick="performSearch()" class="bg-gray-800 text-white px-8 py-3 rounded-lg font-medium hover:bg-black transition">
+                    Search
+                </button>
+            </div>
+
+            <div id="results" class="mt-8 space-y-6">
+                <!-- Results will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function uploadFiles() {
+            const input = document.getElementById('pdfInput');
+            const status = document.getElementById('uploadStatus');
+            const btn = document.getElementById('uploadBtn');
+
+            if (input.files.length === 0) return alert("Please select files first.");
+
+            const formData = new FormData();
+            for (const file of input.files) {
+                formData.append('files', file);
+            }
+
+            status.innerText = "Ingesting files... please wait.";
+            status.className = "mt-3 text-sm text-blue-600 italic";
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/ingest', { method: 'POST', body: formData });
+                const result = await response.json();
+                status.innerText = result.message;
+                status.className = "mt-3 text-sm text-green-600";
+            } catch (err) {
+                status.innerText = "Error uploading files.";
+                status.className = "mt-3 text-sm text-red-600";
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function performSearch() {
+            const query = document.getElementById('queryInput').value;
+            const resultsDiv = document.getElementById('results');
+
+            if (!query) return;
+
+            resultsDiv.innerHTML = '<div class="flex justify-center"><div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-10 w-10"></div></div>';
+
+            try {
+                const response = await fetch(`/search?query=${encodeURIComponent(query)}`);
+                const results = await response.json();
+
+                if (results.length === 0) {
+                    resultsDiv.innerHTML = '<p class="text-center text-gray-500">No relevant results found. Try uploading PDFs first.</p>';
+                    return;
+                }
+
+                resultsDiv.innerHTML = results.map(res => `
+                    <div class="p-5 border border-gray-100 bg-gray-50 rounded-lg hover:shadow-md transition">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                Match Score: ${(res.score * 100).toFixed(1)}%
+                            </span>
+                            <span class="text-xs text-gray-500 italic">
+                                File: ${res.pdf_name} • Page: ${res.page}
+                            </span>
+                        </div>
+                        <p class="text-gray-700 leading-relaxed text-sm">
+                            "${res.text.length > 300 ? res.text.substring(0, 300) + '...' : res.text}"
+                        </p>
+                    </div>
+                `).join('');
+            } catch (err) {
+                resultsDiv.innerHTML = '<p class="text-red-500">Error performing search.</p>';
+            }
+        }
+    </script>
+</body>
+</html>
